@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.graph_objs as go  
 import numpy as np
 import hashlib
 import uuid
@@ -807,4 +807,5 @@ else:
                     hide_index=True
                 )
     else:
+
         st.info("Benvenuto! Non ci sono ancora misurazioni.\n\nContatta il tuo medico per la prima visita.")
