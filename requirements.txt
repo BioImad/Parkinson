@@ -4,3 +4,4 @@ pandas
 plotly
 praat-parselmouth
 numpy
+pytz
