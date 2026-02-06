@@ -406,7 +406,7 @@ def reset_patient_password(doctor_username, codice_fiscale_paziente, new_passwor
 # ==================== FUNZIONI GRAFICI ====================
 
 def create_updrs_trend_chart_simple(df):
-    """Grafico UPDRS semplificato per paziente - SENZA zone colorate"""
+    """Grafico UPDRS semplificato per paziente - SENZA zone colorate - DIMENSIONE RIDOTTA"""
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
@@ -422,17 +422,18 @@ def create_updrs_trend_chart_simple(df):
     fig.update_layout(
         title={
             'text': "Andamento del tuo UPDRS nel Tempo",
-            'font': {'size': 20, 'color': '#333'}
+            'font': {'size': 18, 'color': '#333'}
         },
         xaxis_title="Data",
         yaxis_title="Punteggio UPDRS",
         hovermode='closest',
-        height=450,
+        height=350,  # RIDOTTO da 450 a 350
         plot_bgcolor='white',
         paper_bgcolor='white',
-        font=dict(size=14),
+        font=dict(size=13),
         xaxis=dict(showgrid=True, gridcolor='#E0E0E0'),
-        yaxis=dict(showgrid=True, gridcolor='#E0E0E0')
+        yaxis=dict(showgrid=True, gridcolor='#E0E0E0'),
+        margin=dict(l=50, r=50, t=60, b=50)  # Margini più compatti
     )
 
     return fig
@@ -773,28 +774,48 @@ else:
         col2.metric("UPDRS Attuale", f"{stats['ultimo_updrs']:.1f}")
         col3.metric("Variazione UPDRS", f"{stats['variazione']:+.1f}")
 
-        # Grafico principale - SOLO UPDRS
+        # Grafico principale - CENTRATO E RIDOTTO
         info, data = get_history(st.session_state.user)
 
         if data and len(data) > 0:
             df_p = pd.DataFrame(data)
             df_p['timestamp'] = pd.to_datetime(df_p['timestamp'])
 
-            # Grafico UPDRS semplice
-            st.plotly_chart(create_updrs_trend_chart_simple(df_p), use_container_width=True)
+            # Centra il grafico con colonne vuote ai lati
+            col_left, col_center, col_right = st.columns([1, 2, 1])
+            
+            with col_center:
+                st.plotly_chart(create_updrs_trend_chart_simple(df_p), use_container_width=True)
 
-            # Note del medico
+            # Note del medico - SFONDO BIANCO
             st.subheader("📋 Consigli del tuo Medico")
 
             note_presenti = False
             for idx, row in df_p.iterrows():
                 if row.get('note_medico'):
                     note_presenti = True
-                    with st.container():
-                        st.markdown(
-                            f"**{row['timestamp'].strftime('%d/%m/%Y')}** - UPDRS: {row['motor_updrs']:.1f}")
-                        st.info(row['note_medico'])
-                        st.markdown("---")
+                    
+                    # Container con sfondo bianco e testo nero
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            border: 1px solid #e0e0e0;
+                            margin-bottom: 15px;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        ">
+                            <p style="color: #333; font-weight: bold; margin-bottom: 10px;">
+                                📅 {row['timestamp'].strftime('%d/%m/%Y')} - UPDRS: {row['motor_updrs']:.1f}
+                            </p>
+                            <p style="color: #000; font-size: 15px; line-height: 1.6; margin: 0;">
+                                {row['note_medico']}
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
             if not note_presenti:
                 st.info(
