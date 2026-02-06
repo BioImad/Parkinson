@@ -13,6 +13,24 @@ from supabase import create_client, Client
 import parselmouth
 from pathlib import Path
 import tempfile
+import pytz
+
+# ==================== CONFIGURAZIONE FUSO ORARIO ====================
+TIMEZONE_ITALY = pytz.timezone('Europe/Rome')
+
+def get_italy_time():
+    """Ritorna il timestamp attuale in fuso orario italiano"""
+    return datetime.now(TIMEZONE_ITALY)
+
+def convert_to_italy_time(timestamp_str):
+    """Converte un timestamp UTC in fuso orario italiano"""
+    try:
+        dt = pd.to_datetime(timestamp_str)
+        if dt.tzinfo is None:
+            dt = pytz.UTC.localize(dt)
+        return dt.astimezone(TIMEZONE_ITALY)
+    except:
+        return pd.to_datetime(timestamp_str)
 
 st.set_page_config(page_title="Parkinson Telemonitoring", layout="wide")
 
