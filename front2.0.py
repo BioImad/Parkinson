@@ -204,7 +204,7 @@ def get_history(codice_fiscale):
 
         measurements_response = supabase.table("measurements").select("*").eq(
             "codice_fiscale", cf_upper
-        ).order("timestamp", desc=False).execute()
+        ).order("timestamp", desc=True).execute()  # CAMBIATO: desc=True per mostrare i più recenti prima
 
         return info, measurements_response.data
     except Exception as e:
@@ -669,13 +669,18 @@ if st.session_state.role == "medico":
                 if hist and len(hist) > 0:
                     df = pd.DataFrame(hist)
                     df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    
+                    # Ordina per timestamp crescente per il grafico (cronologico)
+                    df = df.sort_values('timestamp', ascending=True)
 
                     # Grafico UPDRS
                     st.plotly_chart(create_updrs_trend_chart_medico(df), use_container_width=True)
 
-                    # Tabella misurazioni con note
+                    # Tabella misurazioni con note - ORDINE INVERSO (più recenti prima)
                     st.subheader("Dettaglio Misurazioni e Note")
-                    for idx, row in df.iterrows():
+                    df_reversed = df.sort_values('timestamp', ascending=False)  # Inverti per la lista
+                    
+                    for idx, row in df_reversed.iterrows():
                         with st.expander(
                                 f"📅 {row['timestamp'].strftime('%d/%m/%Y %H:%M')} - UPDRS: {row['motor_updrs']:.1f}"):
                             col1, col2 = st.columns([2, 1])
@@ -691,10 +696,10 @@ if st.session_state.role == "medico":
 
                             with st.form(f"nota_form_{idx}"):
                                 nota_input = st.text_area(
-                                    "Consigli per il paziente:",
+                                    " per il paziente:",
                                     value=nota_esistente if nota_esistente else "",
                                     height=100,
-                                    placeholder="Es: Continuare con la terapia farmacologica attuale. Consigliato aumentare l'attività fisica leggera."
+                                    placeholder="Es: Continuare con la terapia farmacologica attuale. ato aumentare l'attività fisica leggera."
                                 )
 
                                 if st.form_submit_button("💾 Salva Nota"):
@@ -785,15 +790,20 @@ else:
         if data and len(data) > 0:
             df_p = pd.DataFrame(data)
             df_p['timestamp'] = pd.to_datetime(df_p['timestamp'])
+            
+            # Ordina cronologicamente per il grafico
+            df_p = df_p.sort_values('timestamp', ascending=True)
 
             # Grafico UPDRS semplice
             st.plotly_chart(create_updrs_trend_chart_simple(df_p), use_container_width=True)
 
-            # Note del medico
-            st.subheader("📋 Consigli del tuo Medico")
+            # Note del medico - ORDINE INVERSO (più recenti prima)
+            st.subheader("📋  del tuo Medico")
 
             note_presenti = False
-            for idx, row in df_p.iterrows():
+            df_p_reversed = df_p.sort_values('timestamp', ascending=False)  # Inverti per le note
+            
+            for idx, row in df_p_reversed.iterrows():
                 if row.get('note_medico'):
                     note_presenti = True
                     with st.container():
