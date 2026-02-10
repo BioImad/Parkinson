@@ -75,16 +75,16 @@ def extract_vocal_features(audio_path):
 
 
 def compute_updrs(features):
-    """Calcola UPDRS con normalizzazione - Formula calibrata per risultati realistici"""
+    """Calcola UPDRS con normalizzazione - Formula calibrata per risultati realistici e variabili"""
     
-    # Valori di riferimento basati su letteratura scientifica
+    # Valori di riferimento calibrati per ottenere distribuzione realistica
     MEANS = {
-        'jitter_abs': 0.00006, 'shimmer_local': 0.035, 'nhr': 0.030,
-        'hnr': 21.0, 'dfa': 0.700, 'ppe': 0.180
+        'jitter_abs': 0.00008, 'shimmer_local': 0.040, 'nhr': 0.035,
+        'hnr': 20.0, 'dfa': 0.750, 'ppe': 0.200
     }
     STDS = {
-        'jitter_abs': 0.00008, 'shimmer_local': 0.025, 'nhr': 0.050,
-        'hnr': 5.0, 'dfa': 0.080, 'ppe': 0.120
+        'jitter_abs': 0.00012, 'shimmer_local': 0.030, 'nhr': 0.060,
+        'hnr': 6.0, 'dfa': 0.100, 'ppe': 0.150
     }
 
     # Normalizzazione z-score
@@ -95,16 +95,16 @@ def compute_updrs(features):
     dfa_norm = (features['dfa'] - MEANS['dfa']) / STDS['dfa']
     ppe_norm = (features['ppe'] - MEANS['ppe']) / STDS['ppe']
 
-    # Formula calibrata per distribuire meglio i punteggi
-    # Baseline più basso per permettere punteggi sotto i 20
+    # Formula calibrata per distribuire i punteggi su tutto il range
+    # Baseline molto più basso per permettere punteggi sotto i 20
     updrs = (
-            15.0 +  # Baseline ridotto da 21 a 15
-            2.5 * jitter_norm +      # Ridotto da 3.2
-            2.2 * shimmer_norm +     # Ridotto da 2.8
-            1.8 * nhr_norm +         # Ridotto da 2.5
-            -1.5 * hnr_norm +        # Ridotto da -1.8
-            1.6 * dfa_norm +         # Ridotto da 2.1
-            1.4 * ppe_norm           # Ridotto da 1.9
+            10.0 +  # Baseline ridotto da 15 a 10
+            1.8 * jitter_norm +      # Ridotto da 2.5
+            1.5 * shimmer_norm +     # Ridotto da 2.2
+            1.2 * nhr_norm +         # Ridotto da 1.8
+            -1.0 * hnr_norm +        # Ridotto da -1.5
+            1.0 * dfa_norm +         # Ridotto da 1.6
+            0.8 * ppe_norm           # Ridotto da 1.4
     )
 
     # Limita il range tra 0 e 108 (scala UPDRS)
