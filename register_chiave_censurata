@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""
+Script Amministratore - Gestione Sistema Telemonitoring
+Questo script e' riservato SOLO all'amministratore del sistema.
+
+Funzionalita':
+- Registrazione nuovi medici
+- Reset password medici
+- Reset password pazienti
+- Visualizzazione utenti registrati
+"""
+
+import re
+import hashlib
+import shutil
+from collections import defaultdict
+from getpass import getpass
+from supabase import create_client, Client
+
+SUPABASE_URL = "https://viexdcbofgsopcrnnbzi.supabase.co"
+SUPABASE_KEY = "eyJ##############################################InJlZiI6InZpZXhkY2JvZmdzb3Bjcm5uYnppIiwicm9sZSI6InNlcnZpY2######################################iZXhwIjoyMDg1MTY1ODk1fQ.JaXyxA8C-ItUtdLqyMWmrSXY4uOiTkGOgAg7jRFJ1Sg"
+
+
+def print_green_bold_center(text):
+    green_bold = "\033[1;92m"
+    reset = "\033[0m"
+    width = shutil.get_terminal_size(fallback=(80, 20)).columns
+    print(green_bold + text.center(width) + reset)
+
+
+def register_doctor():
+    print()
+    print_green_bold_center("REGISTRAZIONE NUOVO MEDICO")
+    print()
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("Connessione al database stabilita")
+        print()
+    except Exception as e:
+        print(f"Errore di connessione: {e}")
+        return
+
+    username = input("Username medico: ").strip()
+    if not username:
+        print("Username non puo' essere vuoto")
+        return
+
+    existing_username = supabase.table("doctors").select("username").eq("username", username).execute()
+    if existing_username.data:
+        print(f"Errore: l'username '{username}' e' gia' registrato nel sistema")
+        return
+
+    max_tentativi = 3
+    for tentativo in range(1, max_tentativi + 1):
+        codice_fiscale = input(
+            f"Codice Fiscale medico (tentativo {tentativo}/{max_tentativi}): "
+        ).strip().upper()
+
+        if not codice_fiscale:
+            print("Codice Fiscale non puo' essere vuoto")
+            if tentativo == max_tentativi:
+                print("Numero massimo di tentativi raggiunto. Registrazione annullata.")
+                return
+            continue
+
+        if len(codice_fiscale) == 16:
+            break
+        else:
+            print(f"ERRORE: Il codice fiscale deve essere di 16 caratteri (inseriti: {len(codice_fiscale)})")
+            if tentativo == max_tentativi:
+                print("Numero massimo di tentativi raggiunto. Registrazione annullata.")
+                return
+
+    codice_fiscale_regex = r'^[A-Z0-9]{16}$'
+    if not re.match(codice_fiscale_regex, codice_fiscale):
+        print("Codice Fiscale non valido. Il formato deve essere composto da 16 caratteri alfanumerici.")
+        return
+
+    existing_cf = supabase.table("doctors").select("codice_fiscale").eq("codice_fiscale", codice_fiscale).execute()
+    if existing_cf.data:
+        print(f"Errore: il Codice Fiscale '{codice_fiscale}' e' gia' registrato nel sistema")
+        return
+
+    password = getpass("Password medico: ")
+    if not password:
+        print("Password non puo' essere vuota")
+        return
+
+    password_confirm = getpass("Conferma password: ")
+    if password != password_confirm:
+        print("Le password non corrispondono!")
+        return
+
+    pw_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    try:
+        supabase.table("doctors").insert({
+            "username": username,
+            "codice_fiscale": codice_fiscale,
+            "password_hash": pw_hash
+        }).execute()
+
+        print()
+        print_green_bold_center("MEDICO REGISTRATO CON SUCCESSO!")
+        print(f"Username: {username}")
+        print(f"Codice Fiscale: {codice_fiscale}")
+        print("Il medico puo' ora accedere all'applicazione")
+        print()
+
+    except Exception as e:
+        print()
+        print(f"ERRORE: {e}")
+
+
+def reset_doctor_password():
+    print()
+    print_green_bold_center("RESET PASSWORD MEDICO")
+    print()
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        response = supabase.table("doctors").select("username, codice_fiscale").execute()
+
+        if not response.data:
+            print("Nessun medico registrato")
+            return
+
+        print("Medici registrati:")
+        for idx, doc in enumerate(response.data, 1):
+            print(f"{idx}. {doc['username']} (CF: {doc.get('codice_fiscale', 'N/A')})")
+
+        print()
+        username = input("Username del medico da resettare: ").strip()
+
+        if not username:
+            print("Username non puo' essere vuoto")
+            return
+
+        check = supabase.table("doctors").select("*").eq("username", username).execute()
+        if not check.data:
+            print(f"Medico '{username}' non trovato")
+            return
+
+        new_password = getpass("Nuova password: ")
+        if not new_password:
+            print("Password non puo' essere vuota")
+            return
+
+        confirm = getpass("Conferma nuova password: ")
+        if new_password != confirm:
+            print("Le password non corrispondono")
+            return
+
+        pw_hash = hashlib.sha256(new_password.encode()).hexdigest()
+
+        supabase.table("doctors").update({
+            "password_hash": pw_hash
+        }).eq("username", username).execute()
+
+        print()
+        print_green_bold_center("PASSWORD AGGIORNATA CON SUCCESSO!")
+        print(f"Il Dr. {username} puo' ora accedere con la nuova password")
+        print()
+
+    except Exception as e:
+        print(f"Errore: {e}")
+
+
+def reset_patient_password():
+    print()
+    print_green_bold_center("RESET PASSWORD PAZIENTE")
+    print()
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        codice_fiscale = input("Codice Fiscale del paziente: ").strip().upper()
+
+        if len(codice_fiscale) != 16:
+            print("Codice fiscale non valido (deve essere 16 caratteri)")
+            return
+
+        check = supabase.table("patients").select("*").eq("codice_fiscale", codice_fiscale).execute()
+        if not check.data:
+            print(f"Paziente con CF '{codice_fiscale}' non trovato")
+            return
+
+        patient = check.data[0]
+        print(f"\nPaziente trovato: {patient['nome']} {patient['cognome']}")
+        print(f"Medico: Dr. {patient.get('doctor_username', 'N/A')}")
+        print()
+
+        new_password = getpass("Nuova password per il paziente: ")
+        if not new_password:
+            print("Password non puo' essere vuota")
+            return
+
+        confirm = getpass("Conferma nuova password: ")
+        if new_password != confirm:
+            print("Le password non corrispondono")
+            return
+
+        pw_hash = hashlib.sha256(new_password.encode()).hexdigest()
+
+        supabase.table("patients").update({
+            "password_hash": pw_hash
+        }).eq("codice_fiscale", codice_fiscale).execute()
+
+        print()
+        print_green_bold_center("PASSWORD AGGIORNATA CON SUCCESSO!")
+        print(f"{patient['nome']} {patient['cognome']} puo' ora accedere con la nuova password")
+        print()
+        print("Attenzione: comunica la nuova password al paziente in modo sicuro!")
+        print(f"Password: {new_password}")
+        print()
+
+    except Exception as e:
+        print(f"Errore: {e}")
+
+
+def list_doctors():
+    print()
+    print_green_bold_center("LISTA MEDICI REGISTRATI")
+    print()
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        response = supabase.table("doctors").select("username, codice_fiscale, created_at").execute()
+
+        if not response.data:
+            print("Nessun medico ancora registrato")
+        else:
+            for idx, doctor in enumerate(response.data, 1):
+                cf = doctor.get("codice_fiscale", "N/A")
+                created_at = doctor.get("created_at", "N/A")
+                data = created_at[:10] if created_at != "N/A" else "N/A"
+                print(f"{idx}. Dr. {doctor['username']} - CF: {cf} (creato il {data})")
+
+        print()
+
+    except Exception as e:
+        print(f"Errore: {e}")
+
+
+def list_all_patients():
+    print()
+    print_green_bold_center("LISTA COMPLETA PAZIENTI")
+    print()
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        response = supabase.table("patients").select(
+            "nome, cognome, codice_fiscale, age, sex, doctor_username, created_at"
+        ).execute()
+
+        if not response.data:
+            print("Nessun paziente ancora registrato")
+        else:
+            by_doctor = defaultdict(list)
+
+            for patient in response.data:
+                doctor_username = patient.get("doctor_username", "N/A")
+                by_doctor[doctor_username].append(patient)
+
+            total = 0
+            for doctor, patients in by_doctor.items():
+                print(f"\nDr. {doctor} ({len(patients)} paziente/i):")
+                for idx, p in enumerate(patients, 1):
+                    sesso = "M" if p["sex"] == 1 else "F"
+                    print(
+                        f"  {idx}. {p['nome']} {p['cognome']} - CF: {p['codice_fiscale']} - Eta': {p['age']} - Sesso: {sesso}"
+                    )
+                    total += 1
+
+            print()
+            print_green_bold_center(f"TOTALE PAZIENTI NEL SISTEMA: {total}")
+
+        print()
+
+    except Exception as e:
+        print(f"Errore: {e}")
+
+
+def main():
+    print()
+    print_green_bold_center("PANNELLO AMMINISTRATORE")
+    print_green_bold_center("Sistema Telemonitoring Parkinson")
+    print()
+
+    while True:
+        print("Scegli un'operazione:")
+        print("1. Registra nuovo medico")
+        print("2. Visualizza medici registrati")
+        print("3. Visualizza TUTTI i pazienti")
+        print("4. Reset password medico")
+        print("5. Reset password paziente")
+        print("6. Esci")
+        print()
+
+        choice = input("Scelta (1-6): ").strip()
+        print()
+
+        if choice == "1":
+            register_doctor()
+        elif choice == "2":
+            list_doctors()
+        elif choice == "3":
+            list_all_patients()
+        elif choice == "4":
+            reset_doctor_password()
+        elif choice == "5":
+            reset_patient_password()
+        elif choice == "6":
+            print("Arrivederci!")
+            break
+        else:
+            print("Scelta non valida")
+
+        print()
+
+
+if __name__ == "__main__":
+    main()
