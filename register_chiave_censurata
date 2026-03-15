@@ -20,14 +20,6 @@ from supabase import create_client, Client
 SUPABASE_URL = "https://viexdcbofgsopcrnnbzi.supabase.co"
 SUPABASE_KEY = "eyJ##############################################InJlZiI6InZpZXhkY2JvZmdzb3Bjcm5uYnppIiwicm9sZSI6InNlcnZpY2######################################iZXhwIjoyMDg1MTY1ODk1fQ.JaXyxA8C-ItUtdLqyMWmrSXY4uOiTkGOgAg7jRFJ1Sg"
 
-
-def print_green_bold_center(text):
-    green_bold = "\033[1;92m"
-    reset = "\033[0m"
-    width = shutil.get_terminal_size(fallback=(80, 20)).columns
-    print(green_bold + text.center(width) + reset)
-
-
 def register_doctor():
     print()
     print_green_bold_center("REGISTRAZIONE NUOVO MEDICO")
